@@ -10,9 +10,11 @@ import {
   Image as ImageIcon,
   Sun,
   Activity, 
-  Wand2 
+  Wand2,
+  Eraser
 } from 'lucide-react';
 import PhotoCropper from './components/PhotoCropper';
+import ManualEraser from './components/ManualEraser';
 import { AppStep, PixelCrop, CHILD_PHOTO_HEIGHT_MM, CHILD_PHOTO_WIDTH_MM } from './types';
 import { getCroppedImg, applyImageFilters } from './services/imageUtils';
 import { generatePhotoSheet } from './services/pdfService';
@@ -34,6 +36,7 @@ const App: React.FC = () => {
   const [processingMessage, setProcessingMessage] = useState('');
   
   const [isAutoRemoving, setIsAutoRemoving] = useState(false);
+  const [isManualErasing, setIsManualErasing] = useState(false);
   
   // Filter States
   const [isGrayscale, setIsGrayscale] = useState(false);
@@ -79,6 +82,20 @@ const App: React.FC = () => {
   // 3. Auto Background Handler
   const handleAutoBackground = async () => {
     if (!croppedImage) return;
+
+    // Check environment API Key availability
+    const aiStudio = (window as any).aistudio;
+    if (aiStudio) {
+      try {
+        const hasKey = await aiStudio.hasSelectedApiKey();
+        if (!hasKey) {
+           await aiStudio.openSelectKey();
+        }
+      } catch (e) {
+        console.error("Error checking/selecting API key", e);
+      }
+    }
+
     setIsAutoRemoving(true);
     setProcessingMessage('Procesando fondo automáticamente...');
     
@@ -87,7 +104,23 @@ const App: React.FC = () => {
       setCroppedImage(newImage);
     } catch (error: any) {
       console.error(error);
-      alert(`Hubo un error al procesar el fondo: ${error.message}`);
+      
+      // If error is related to missing key (and we are in a supported env), prompt again
+      if (error.message.includes("API Key") || error.message.includes("Requested entity was not found")) {
+         const aiStudio = (window as any).aistudio;
+         if (aiStudio) {
+            const retry = confirm("La llave API no fue detectada o requiere un proyecto de pago. ¿Deseas intentar seleccionarla de nuevo?");
+            if (retry) {
+               await aiStudio.openSelectKey();
+            } else {
+               alert("Puedes usar el 'Borrador Manual' si no deseas configurar una API Key de pago.");
+            }
+         } else {
+             alert(`Hubo un error: ${error.message}. Intenta con el borrador manual.`);
+         }
+      } else {
+         alert(`Hubo un error al procesar el fondo: ${error.message}. Intenta con el borrador manual.`);
+      }
     } finally {
       setIsAutoRemoving(false);
       setProcessingMessage('');
@@ -136,6 +169,7 @@ const App: React.FC = () => {
     setIsGrayscale(false);
     setBrightness(100);
     setContrast(100);
+    setIsManualErasing(false);
   };
 
   return (
@@ -165,42 +199,44 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-5xl mx-auto w-full p-4 sm:p-6">
         
         {/* Progress Stepper */}
-        <div className="mb-8 overflow-x-auto pb-2">
-            <div className="flex items-center justify-between min-w-[300px] max-w-2xl mx-auto">
-              {[
-                { icon: Upload, label: "Subir" },
-                { icon: Scissors, label: "Recortar" },
-                { icon: Wand2, label: "Editar" },
-                { icon: Printer, label: "Imprimir" },
-              ].map((step, index) => {
-                const isActive = currentStep === index;
-                const isCompleted = currentStep > index;
-                const Icon = step.icon;
-                
-                return (
-                  <div key={index} className="flex flex-col items-center gap-2 relative z-0 group">
-                    <div 
-                      className={`
-                        w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300
-                        ${isActive ? 'border-blue-600 bg-blue-50 text-blue-600' : ''}
-                        ${isCompleted ? 'border-green-500 bg-green-50 text-green-500' : ''}
-                        ${!isActive && !isCompleted ? 'border-slate-200 text-slate-400' : ''}
-                      `}
-                    >
-                      {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+        {!isManualErasing && (
+          <div className="mb-8 overflow-x-auto pb-2">
+              <div className="flex items-center justify-between min-w-[300px] max-w-2xl mx-auto">
+                {[
+                  { icon: Upload, label: "Subir" },
+                  { icon: Scissors, label: "Recortar" },
+                  { icon: Wand2, label: "Editar" },
+                  { icon: Printer, label: "Imprimir" },
+                ].map((step, index) => {
+                  const isActive = currentStep === index;
+                  const isCompleted = currentStep > index;
+                  const Icon = step.icon;
+                  
+                  return (
+                    <div key={index} className="flex flex-col items-center gap-2 relative z-0 group">
+                      <div 
+                        className={`
+                          w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300
+                          ${isActive ? 'border-blue-600 bg-blue-50 text-blue-600' : ''}
+                          ${isCompleted ? 'border-green-500 bg-green-50 text-green-500' : ''}
+                          ${!isActive && !isCompleted ? 'border-slate-200 text-slate-400' : ''}
+                        `}
+                      >
+                        {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                      </div>
+                      <span className={`text-xs font-semibold ${isActive ? 'text-blue-600' : 'text-slate-500'}`}>
+                        {step.label}
+                      </span>
+                      {/* Connector Line */}
+                      {index !== 3 && (
+                         <div className={`absolute top-5 left-[50%] w-full h-[2px] -z-10 translate-x-[50%] ${currentStep > index ? 'bg-green-500' : 'bg-slate-200'}`} style={{width: 'calc(100% - 20px)'}}></div>
+                      )}
                     </div>
-                    <span className={`text-xs font-semibold ${isActive ? 'text-blue-600' : 'text-slate-500'}`}>
-                      {step.label}
-                    </span>
-                    {/* Connector Line */}
-                    {index !== 3 && (
-                       <div className={`absolute top-5 left-[50%] w-full h-[2px] -z-10 translate-x-[50%] ${currentStep > index ? 'bg-green-500' : 'bg-slate-200'}`} style={{width: 'calc(100% - 20px)'}}></div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-        </div>
+                  );
+                })}
+              </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
           
@@ -250,8 +286,23 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* STEP 3: EDIT */}
-          {currentStep === AppStep.EDIT && croppedImage && (
+          {/* STEP 3: EDIT - MANUAL ERASER MODE */}
+          {currentStep === AppStep.EDIT && isManualErasing && croppedImage && (
+             <div className="max-w-4xl mx-auto">
+                <h2 className="text-xl font-bold text-slate-800 mb-6">Borrador Manual</h2>
+                <ManualEraser 
+                  imageSrc={croppedImage}
+                  onSave={(newImg) => {
+                    setCroppedImage(newImg);
+                    setIsManualErasing(false);
+                  }}
+                  onCancel={() => setIsManualErasing(false)}
+                />
+             </div>
+          )}
+
+          {/* STEP 3: EDIT - STANDARD MODE */}
+          {currentStep === AppStep.EDIT && !isManualErasing && croppedImage && (
               <div className="max-w-4xl mx-auto">
                 <h2 className="text-xl font-bold text-slate-800 mb-6">Editor de Fotografía</h2>
                 
@@ -289,7 +340,7 @@ const App: React.FC = () => {
                   {/* Controls */}
                   <div className="space-y-6">
                     
-                    {/* Auto Tools */}
+                    {/* Background Tools */}
                     <div className="bg-indigo-50 p-5 rounded-xl border border-indigo-100">
                       <div className="flex items-center gap-2 mb-3">
                         <Wand2 className="w-4 h-4 text-indigo-600" />
@@ -303,7 +354,16 @@ const App: React.FC = () => {
                           className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
                         >
                           {isAutoRemoving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />}
-                          Eliminar Fondo Automáticamente
+                          Eliminar Fondo (IA)
+                        </button>
+
+                        <button 
+                          onClick={() => setIsManualErasing(true)}
+                          disabled={isAutoRemoving || isProcessing}
+                          className="w-full bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <Eraser className="w-4 h-4" />
+                          Borrador Manual
                         </button>
                       </div>
                     </div>
