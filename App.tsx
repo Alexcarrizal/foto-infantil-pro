@@ -85,9 +85,9 @@ const App: React.FC = () => {
     try {
       const newImage = await removeBackgroundWithGemini(croppedImage);
       setCroppedImage(newImage);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Hubo un error al procesar el fondo automáticamente.");
+      alert(`Hubo un error al procesar el fondo: ${error.message}`);
     } finally {
       setIsAutoRemoving(false);
       setProcessingMessage('');
