@@ -15,14 +15,13 @@ import {
 import PhotoCropper from './components/PhotoCropper';
 import { AppStep, PixelCrop, CHILD_PHOTO_HEIGHT_MM, CHILD_PHOTO_WIDTH_MM } from './types';
 import { getCroppedImg, applyImageFilters } from './services/imageUtils';
-import { removeBackgroundWithGemini } from './services/geminiService';
 import { generatePhotoSheet } from './services/pdfService';
 
 const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<AppStep>(AppStep.UPLOAD);
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   
-  // 'croppedImage' acts as the Source of Truth for the current visual base (after crop or bg removal)
+  // 'croppedImage' acts as the Source of Truth for the current visual base (after crop)
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   
   // 'finalImage' is the result AFTER applying brightness/contrast/grayscale baked in
@@ -75,24 +74,6 @@ const App: React.FC = () => {
   };
 
   // 3. Edit Handlers
-  const handleRemoveBackground = async () => {
-    if (!croppedImage) return;
-    
-    setIsProcessing(true);
-    setProcessingMessage('La IA está eliminando el fondo...');
-    
-    try {
-      const newImage = await removeBackgroundWithGemini(croppedImage);
-      // We update the base croppedImage. The sliders (brightness/contrast) will now apply to this new base.
-      setCroppedImage(newImage); 
-    } catch (error) {
-      alert("Error al eliminar el fondo. Verifica tu API Key o intenta de nuevo.");
-      console.error(error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handleContinueToPrint = async () => {
     if (!croppedImage) return;
 
@@ -286,25 +267,6 @@ const App: React.FC = () => {
                 {/* Controls */}
                 <div className="space-y-6">
                   
-                  {/* AI Tools */}
-                  <div className="bg-indigo-50 p-5 rounded-xl border border-indigo-100">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Wand2 className="w-4 h-4 text-indigo-600" />
-                      <h3 className="font-semibold text-indigo-900">Inteligencia Artificial</h3>
-                    </div>
-                    <p className="text-xs text-indigo-700/70 mb-4">
-                      Mejora tu foto automáticamente.
-                    </p>
-                    <button 
-                      onClick={handleRemoveBackground}
-                      disabled={isProcessing}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
-                    >
-                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-                      Reemplazar Fondo a Blanco
-                    </button>
-                  </div>
-
                   {/* Adjustments */}
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
