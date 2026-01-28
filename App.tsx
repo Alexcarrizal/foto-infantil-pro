@@ -9,12 +9,10 @@ import {
   Check,
   Image as ImageIcon,
   Sun,
-  Activity, // For contrast
-  Eraser,
-  Wand2 // Icon for auto magic
+  Activity, 
+  Wand2 
 } from 'lucide-react';
 import PhotoCropper from './components/PhotoCropper';
-import { ManualEraser } from './components/ManualEraser';
 import { AppStep, PixelCrop, CHILD_PHOTO_HEIGHT_MM, CHILD_PHOTO_WIDTH_MM } from './types';
 import { getCroppedImg, applyImageFilters } from './services/imageUtils';
 import { generatePhotoSheet } from './services/pdfService';
@@ -35,8 +33,6 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   
-  // Eraser state
-  const [isEraserOpen, setIsEraserOpen] = useState(false);
   const [isAutoRemoving, setIsAutoRemoving] = useState(false);
   
   // Filter States
@@ -80,13 +76,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 3. Eraser Handler
-  const handleEraserSave = (newImage: string) => {
-    setCroppedImage(newImage);
-    setIsEraserOpen(false);
-  };
-
-  // 4. Auto Background Handler
+  // 3. Auto Background Handler
   const handleAutoBackground = async () => {
     if (!croppedImage) return;
     setIsAutoRemoving(true);
@@ -97,14 +87,14 @@ const App: React.FC = () => {
       setCroppedImage(newImage);
     } catch (error) {
       console.error(error);
-      alert("Hubo un error al procesar el fondo automáticamente. Por favor, intenta con el borrador manual.");
+      alert("Hubo un error al procesar el fondo automáticamente.");
     } finally {
       setIsAutoRemoving(false);
       setProcessingMessage('');
     }
   };
 
-  // 5. Final Processing Handler
+  // 4. Final Processing Handler
   const handleContinueToPrint = async () => {
     if (!croppedImage) return;
 
@@ -130,7 +120,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 6. PDF Generation
+  // 5. PDF Generation
   const downloadPDF = () => {
     if (finalImage) {
       const doc = generatePhotoSheet(finalImage, photoCount);
@@ -146,7 +136,6 @@ const App: React.FC = () => {
     setIsGrayscale(false);
     setBrightness(100);
     setContrast(100);
-    setIsEraserOpen(false);
   };
 
   return (
@@ -176,8 +165,7 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-5xl mx-auto w-full p-4 sm:p-6">
         
         {/* Progress Stepper */}
-        {!isEraserOpen && (
-          <div className="mb-8 overflow-x-auto pb-2">
+        <div className="mb-8 overflow-x-auto pb-2">
             <div className="flex items-center justify-between min-w-[300px] max-w-2xl mx-auto">
               {[
                 { icon: Upload, label: "Subir" },
@@ -212,8 +200,7 @@ const App: React.FC = () => {
                 );
               })}
             </div>
-          </div>
-        )}
+        </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
           
@@ -265,13 +252,6 @@ const App: React.FC = () => {
 
           {/* STEP 3: EDIT */}
           {currentStep === AppStep.EDIT && croppedImage && (
-            isEraserOpen ? (
-              <ManualEraser 
-                imageSrc={croppedImage} 
-                onSave={handleEraserSave}
-                onCancel={() => setIsEraserOpen(false)}
-              />
-            ) : (
               <div className="max-w-4xl mx-auto">
                 <h2 className="text-xl font-bold text-slate-800 mb-6">Editor de Fotografía</h2>
                 
@@ -309,7 +289,7 @@ const App: React.FC = () => {
                   {/* Controls */}
                   <div className="space-y-6">
                     
-                    {/* Manual Tools */}
+                    {/* Auto Tools */}
                     <div className="bg-indigo-50 p-5 rounded-xl border border-indigo-100">
                       <div className="flex items-center gap-2 mb-3">
                         <Wand2 className="w-4 h-4 text-indigo-600" />
@@ -324,21 +304,6 @@ const App: React.FC = () => {
                         >
                           {isAutoRemoving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4" />}
                           Eliminar Fondo Automáticamente
-                        </button>
-                        
-                        <div className="relative flex items-center py-1">
-                          <div className="flex-grow border-t border-indigo-200"></div>
-                          <span className="flex-shrink-0 mx-2 text-xs text-indigo-400">o manual</span>
-                          <div className="flex-grow border-t border-indigo-200"></div>
-                        </div>
-
-                        <button 
-                          onClick={() => setIsEraserOpen(true)}
-                          disabled={isAutoRemoving || isProcessing}
-                          className="w-full bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 py-2.5 px-4 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
-                        >
-                          <Eraser className="w-4 h-4" />
-                          Borrador Manual
                         </button>
                       </div>
                     </div>
@@ -418,7 +383,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )
           )}
 
           {/* STEP 4: PRINT / DOWNLOAD */}
